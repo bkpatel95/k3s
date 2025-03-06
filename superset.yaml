@@ -42,7 +42,7 @@ spec:
         - "-c"
         - |
           superset init && 
-          sed -i "s/SECRET_KEY =.*/SECRET_KEY = \"$(openssl -base64 42)\"/" /app/superset_home/pythonpath/superset/superset_config.py &&
+          sed -i "s/SECRET_KEY =.*/SECRET_KEY = \"$(openssl -hex 42)\"/" /app/superset_home/pythonpath/superset/superset_config.py &&
           superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
         ports:
         - containerPort: 8088
