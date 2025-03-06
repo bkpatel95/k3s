@@ -6,6 +6,18 @@ metadata:
 
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: superset-config
+  namespace: superset
+data:
+  superset_config.py: |
+    # Superset configuration file
+    # You can add additional configurations here.
+    SECRET_KEY = "default"
+
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: superset-pvc
@@ -62,12 +74,20 @@ spec:
             cpu: 2
             memory: 4Gi
         volumeMounts:
+        # Mount the persistent volume for data
         - name: superset-data
           mountPath: /app
+        # Mount the config file from the ConfigMap at the correct location using subPath
+        - name: superset-config
+          mountPath: /app/superset_config.py
+          subPath: superset_config.py
       volumes:
       - name: superset-data
         persistentVolumeClaim:
           claimName: superset-pvc
+      - name: superset-config
+        configMap:
+          name: superset-config
 
 ---
 apiVersion: v1
