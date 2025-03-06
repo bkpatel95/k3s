@@ -1,8 +1,0 @@
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: faster-storage
-provisioner: rancher.io/local-path
-parameters:
-  path: "/mnt/data-faster"
-volumeBindingMode: WaitForFirstConsumer
