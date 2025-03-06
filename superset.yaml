@@ -1,41 +1,15 @@
----
 apiVersion: v1
 kind: Namespace
 metadata:
   name: superset
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: superset-config
-  namespace: superset
-data:
-  superset_config.py: |
-    # Superset configuration file
-    # Add additional configurations as needed.
-    SECRET_KEY = "default"
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: superset-pvc
-  namespace: superset
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: faster-storage
-
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: superset
   namespace: superset
+  labels:
+    app: superset
 spec:
   replicas: 1
   selector:
@@ -48,61 +22,53 @@ spec:
     spec:
       containers:
       - name: superset
-        image: apache/superset:latest  # Use the latest Superset image
-        command:
-        - "/bin/sh"
-        - "-c"
-        - |
-          # Copy the config file from the read-only mount to a writable location
-          cp /etc/superset_config/superset_config.py /app/superset_config.py && \
-          # Generate a random secret key using Python and update the config file
-          SECRET=$(python3 -c "import secrets; print(secrets.token_hex(42))") && \
-          sed -i "s/SECRET_KEY =.*/SECRET_KEY = \"$SECRET\"/" /app/superset_config.py && \
-          superset init && \
-          superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
+        image: apache/superset:latest
         ports:
         - containerPort: 8088
         env:
-        - name: FLASK_APP
-          value: superset
-        - name: SUPERSET__SQLALCHEMY_DATABASE_URI
-          value: postgresql://admin:admin@postgres-stock.postgresql.svc.cluster.local:5432/superset
-        - name: SUPERSET_CONFIG_PATH
-          value: /app/superset_config.py
+          # Use the secure secret from our Secret resource.
+          - name: SUPERSET_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: superset-secrets
+                key: SUPERSET_SECRET_KEY
+          # Define the database connection.
+          # Kubernetes DNS resolves the PostgreSQL service as:
+          # <service>.<namespace>.svc.cluster.local
+          - name: DATABASE_URL
+            value: "postgresql://admin:admin@postgres-stock.postgresql.svc.cluster.local:5432/stockdb"
         resources:
           requests:
-            cpu: 100m
-            memory: 512Mi
+            cpu: "500m"
+            memory: "1Gi"
           limits:
-            cpu: 2
-            memory: 4Gi
-        volumeMounts:
-        # Mount the persistent volume to /app so the copied config file is writable.
-        - name: superset-data
-          mountPath: /app
-        # Mount the ConfigMap at a separate path for read-only access.
-        - name: superset-config
-          mountPath: /etc/superset_config
-      volumes:
-      - name: superset-data
-        persistentVolumeClaim:
-          claimName: superset-pvc
-      - name: superset-config
-        configMap:
-          name: superset-config
-
+            cpu: "2"
+            memory: "4Gi"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8088
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8088
+          initialDelaySeconds: 60
+          periodSeconds: 30
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: superset
   namespace: superset
+  labels:
+    app: superset
 spec:
-  type: NodePort
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8088
+    protocol: TCP
   selector:
     app: superset
-  ports:
-  - protocol: TCP
-    port: 8088
-    targetPort: 8088
-    nodePort: 30082
