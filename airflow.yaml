@@ -1,0 +1,180 @@
+############################################################################
+# 1. Namespace
+############################################################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: airflow
+---
+############################################################################
+# 2. PostgreSQL Deployment (Airflow Metadata DB)
+############################################################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-postgres
+  namespace: airflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-postgres
+  template:
+    metadata:
+      labels:
+        app: airflow-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "airflow"
+        - name: POSTGRES_PASSWORD
+          value: "airflow"
+        - name: POSTGRES_DB
+          value: "airflow"
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "1Gi"
+          limits:
+            cpu: "500m"
+            memory: "2Gi"
+---
+############################################################################
+# 3. PostgreSQL Service
+############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-postgres
+  namespace: airflow
+spec:
+  selector:
+    app: airflow-postgres
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432
+---
+############################################################################
+# 4. Airflow Scheduler Deployment (with DB Init InitContainer and Shared DAG Folder)
+############################################################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+  namespace: airflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: scheduler
+  template:
+    metadata:
+      labels:
+        component: scheduler
+    spec:
+      initContainers:
+      - name: init-airflow-db
+        image: apache/airflow:2.6.2
+        command: ["airflow", "db", "init"]
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "LocalExecutor"
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
+      containers:
+      - name: scheduler
+        image: apache/airflow:2.6.2
+        command: [ "sh", "-c", "mkdir -p /shared/dags && airflow scheduler" ]
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "LocalExecutor"
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
+        - name: AIRFLOW__CORE__DAGS_FOLDER
+          value: "/shared/dags"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared
+      volumes:
+      - name: shared-volume
+        emptyDir: {}
+---
+############################################################################
+# 5. Airflow Webserver Deployment (with Admin User Creation and Shared DAG Folder)
+############################################################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: airflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: webserver
+  template:
+    metadata:
+      labels:
+        component: webserver
+    spec:
+      containers:
+      - name: webserver
+        image: apache/airflow:2.6.2
+        command: [ "airflow", "users", "create",
+                   "--username", "admin",
+                   "--firstname", "Admin",
+                   "--lastname", "User",
+                   "--role", "Admin",
+                   "--email", "bhavip45@gmail.com",
+                   "--password", "admin" ]
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "LocalExecutor"
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
+        - name: AIRFLOW__CORE__DAGS_FOLDER
+          value: "/shared/dags"
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "2Gi"
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared
+      volumes:
+      - name: shared-volume
+        emptyDir: {}
+---
+############################################################################
+# 6. Airflow Webserver Service (NodePort for External Access)
+############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver
+  namespace: airflow
+spec:
+  type: NodePort
+  selector:
+    component: webserver
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080

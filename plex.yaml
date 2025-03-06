@@ -1,0 +1,77 @@
+###############################################################################
+# 1) A single PVC named "pvc-media" with 1800Gi
+###############################################################################
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-media
+spec:
+  storageClassName: media-storage   # or whichever SC you want to use
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1800Gi
+
+---
+###############################################################################
+# 2) Plex Deployment
+###############################################################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plex
+  template:
+    metadata:
+      labels:
+        app: plex
+    spec:
+      containers:
+      - name: plex
+        image: linuxserver/plex:latest
+        ports:
+        - containerPort: 32400
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: VERSION
+          value: "latest"
+
+        # Two volumeMounts from the SAME PVC via subPath
+        volumeMounts:
+        - name: plex-vol
+          mountPath: /config
+          subPath: config
+        - name: plex-vol
+          mountPath: /media
+          subPath: media
+
+      volumes:
+      - name: plex-vol
+        persistentVolumeClaim:
+          claimName: pvc-media
+
+---
+###############################################################################
+# 3) Service (NodePort) for Plex
+###############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: plex
+spec:
+  type: NodePort
+  selector:
+    app: plex
+  ports:
+  - name: plex-web
+    port: 32400
+    targetPort: 32400
+    nodePort: 32400
