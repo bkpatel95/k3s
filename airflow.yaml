@@ -61,7 +61,7 @@ spec:
     targetPort: 5432
 ---
 ############################################################################
-# 4. Airflow Scheduler Deployment (with DB Init InitContainer and Shared DAG Folder)
+# 4. Airflow Scheduler Deployment (with DB Init, DAG Sync, and Shared DAG Folder)
 ############################################################################
 apiVersion: apps/v1
 kind: Deployment
@@ -87,6 +87,15 @@ spec:
           value: "LocalExecutor"
         - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
           value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
+      - name: pull-dags
+        image: alpine/git
+        command:
+          - "sh"
+          - "-c"
+          - "rm -rf /shared/dags/* && git clone https://github.com/yourusername/airflow-dags.git /shared/dags"
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared
       containers:
       - name: scheduler
         image: apache/airflow:2.6.2
@@ -113,7 +122,7 @@ spec:
         emptyDir: {}
 ---
 ############################################################################
-# 5. Airflow Webserver Deployment (with Admin User Creation and Shared DAG Folder)
+# 5. Airflow Webserver Deployment (with Admin User Creation, DAG Sync, and Shared DAG Folder)
 ############################################################################
 apiVersion: apps/v1
 kind: Deployment
@@ -130,6 +139,16 @@ spec:
       labels:
         component: webserver
     spec:
+      initContainers:
+      - name: pull-dags
+        image: alpine/git
+        command:
+          - "sh"
+          - "-c"
+          - "rm -rf /shared/dags/* && git clone https://github.com/bkpatel95/DAGs.git /shared/dags"
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared
       containers:
       - name: webserver
         image: apache/airflow:2.6.2
