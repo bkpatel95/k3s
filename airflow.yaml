@@ -152,13 +152,7 @@ spec:
       containers:
       - name: webserver
         image: apache/airflow:2.6.2
-        command: [ "airflow", "users", "create",
-                   "--username", "admin",
-                   "--firstname", "Admin",
-                   "--lastname", "User",
-                   "--role", "Admin",
-                   "--email", "bhavip45@gmail.com",
-                   "--password", "admin" ]
+        command: [ "sh", "-c", "airflow users create --username admin --firstname Admin --lastname User --role Admin --email bhavip45@gmail.com --password admin && airflow webserver" ]
         env:
         - name: AIRFLOW__CORE__EXECUTOR
           value: "LocalExecutor"
