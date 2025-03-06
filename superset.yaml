@@ -13,7 +13,7 @@ metadata:
 data:
   superset_config.py: |
     # Superset configuration file
-    # You can add additional configurations here.
+    # Add additional configurations as needed.
     SECRET_KEY = "default"
 
 ---
@@ -53,6 +53,9 @@ spec:
         - "/bin/sh"
         - "-c"
         - |
+          # Copy the config file from the read-only mount to a writable location
+          cp /etc/superset_config/superset_config.py /app/superset_config.py && \
+          # Generate a random secret key using Python and update the config file
           SECRET=$(python3 -c "import secrets; print(secrets.token_hex(42))") && \
           sed -i "s/SECRET_KEY =.*/SECRET_KEY = \"$SECRET\"/" /app/superset_config.py && \
           superset init && \
@@ -68,19 +71,18 @@ spec:
           value: /app/superset_config.py
         resources:
           requests:
-            cpu: 1
-            memory: 2Gi
+            cpu: 100m
+            memory: 512Mi
           limits:
             cpu: 2
             memory: 4Gi
         volumeMounts:
-        # Mount the persistent volume for data
+        # Mount the persistent volume to /app so the copied config file is writable.
         - name: superset-data
           mountPath: /app
-        # Mount the config file from the ConfigMap at the correct location using subPath
+        # Mount the ConfigMap at a separate path for read-only access.
         - name: superset-config
-          mountPath: /app/superset_config.py
-          subPath: superset_config.py
+          mountPath: /etc/superset_config
       volumes:
       - name: superset-data
         persistentVolumeClaim:
