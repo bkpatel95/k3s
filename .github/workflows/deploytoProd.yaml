@@ -1,4 +1,4 @@
-name: Deploy to Prod
+name: Deploy to Production
 
 on:
   push:
@@ -7,8 +7,6 @@ on:
 
 jobs:
   deploy:
-    # Use your self-hosted runner. If you want to restrict to a specific label, e.g., "k3s-runner",
-    # set: runs-on: [self-hosted, k3s-runner]
     runs-on: self-hosted
 
     steps:
@@ -21,8 +19,12 @@ jobs:
         chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
 
+    - name: Set up kubeconfig
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+      shell: bash
+
     - name: Deploy to Production
-      env:
-        KUBECONFIG: ${{ secrets.KUBECONFIG }}
       run: |
         kubectl apply -f .
