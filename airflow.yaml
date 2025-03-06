@@ -92,7 +92,7 @@ spec:
         command:
           - "sh"
           - "-c"
-          - "rm -rf /shared/dags/* && git clone https://github.com/yourusername/airflow-dags.git /shared/dags"
+          - "rm -rf /shared/dags/* && git clone https://github.com/bkpatel95/DAGs.git /shared/dags"
         volumeMounts:
         - name: shared-volume
           mountPath: /shared
