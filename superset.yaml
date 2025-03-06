@@ -20,6 +20,30 @@ spec:
       labels:
         app: superset
     spec:
+      # Init container to run migrations and create admin account
+      initContainers:
+      - name: create-admin
+        image: apache/superset:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            superset db upgrade &&
+            superset fab create-admin \
+              --username admin \
+              --firstname Admin \
+              --lastname User \
+              --email bhavip45@gmail.com \
+              --password admin \
+              --force &&
+            superset init
+        env:
+          - name: SUPERSET_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: superset-secrets
+                key: SUPERSET_SECRET_KEY
+          - name: DATABASE_URL
+            value: "postgresql://admin:admin@postgres-stock.postgresql.svc.cluster.local:5432/stockdb"
       containers:
       - name: superset
         image: apache/superset:latest
