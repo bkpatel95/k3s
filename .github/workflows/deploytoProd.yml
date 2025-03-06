@@ -1,0 +1,28 @@
+name: Deploy to Prod
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # Use your self-hosted runner. If you want to restrict to a specific label, e.g., "k3s-runner",
+    # set: runs-on: [self-hosted, k3s-runner]
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install kubectl
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+
+    - name: Deploy to Production
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      run: |
+        kubectl apply -f .
