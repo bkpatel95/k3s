@@ -26,15 +26,11 @@ spec:
         ports:
         - containerPort: 8088
         env:
-          # Use the secure secret from our Secret resource.
           - name: SUPERSET_SECRET_KEY
             valueFrom:
               secretKeyRef:
                 name: superset-secrets
                 key: SUPERSET_SECRET_KEY
-          # Define the database connection.
-          # Kubernetes DNS resolves the PostgreSQL service as:
-          # <service>.<namespace>.svc.cluster.local
           - name: DATABASE_URL
             value: "postgresql://admin:admin@postgres-stock.postgresql.svc.cluster.local:5432/stockdb"
         resources:
@@ -60,15 +56,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: superset
+  name: superset-svc   # Renamed to avoid auto-injection of SUPERSET_PORT
   namespace: superset
   labels:
     app: superset
 spec:
   type: LoadBalancer
   ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8088
+    - protocol: TCP
+      port: 80
+      targetPort: 8088
   selector:
     app: superset
