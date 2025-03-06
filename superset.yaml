@@ -41,8 +41,9 @@ spec:
         - "/bin/sh"
         - "-c"
         - |
-          sed -i "s/SECRET_KEY =.*/SECRET_KEY = \"$(openssl -base64 42)\"/" /app/superset_home/pythonpath/superset/config.py &&
-          superset init &&
+          SECRET=$(python3 -c "import secrets; print(secrets.token_hex(42))") && \
+          sed -i "s/SECRET_KEY =.*/SECRET_KEY = \"$SECRET\"/" /app/superset_config.py && \
+          superset init && \
           superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
         ports:
         - containerPort: 8088
@@ -50,8 +51,9 @@ spec:
         - name: FLASK_APP
           value: superset
         - name: SUPERSET__SQLALCHEMY_DATABASE_URI
-          value: postgresql://admin:admin@postgres-stock.postgresql.svc.cluster.local:5432/superset  # Update with your PostgreSQL details
-        # Add other environment variables for Superset configuration if needed
+          value: postgresql://admin:admin@postgres-stock.postgresql.svc.cluster.local:5432/superset
+        - name: SUPERSET_CONFIG_PATH
+          value: /app/superset_config.py
         resources:
           requests:
             cpu: 100m
@@ -61,7 +63,7 @@ spec:
             memory: 4Gi
         volumeMounts:
         - name: superset-data
-          mountPath: /app/superset_home
+          mountPath: /app
       volumes:
       - name: superset-data
         persistentVolumeClaim:
@@ -81,4 +83,4 @@ spec:
   - protocol: TCP
     port: 8088
     targetPort: 8088
-    nodePort: 30082  # Choose a NodePort that doesn't conflict with other services
+    nodePort: 30082
