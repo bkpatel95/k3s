@@ -23,6 +23,13 @@ spec:
       containers:
       - name: superset
         image: apache/superset:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - >
+            superset db upgrade &&
+            superset fab create-admin --username admin --firstname Admin --lastname User --email bhavip45@gmail.com --password admin --force &&
+            superset init &&
+            superset run -p 32148 --with-threads --reload --debugger
         ports:
         - containerPort: 32148
         env:
@@ -33,7 +40,6 @@ spec:
                 key: SUPERSET_SECRET_KEY
           - name: DATABASE_URL
             value: "postgresql://admin:admin@postgres-stock.postgresql.svc.cluster.local:5432/stockdb"
-          # Environment variables for automatic admin creation:
           - name: ADMIN_USERNAME
             value: "admin"
           - name: ADMIN_FIRSTNAME
