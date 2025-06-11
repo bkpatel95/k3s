@@ -155,15 +155,7 @@ spec:
         command:
           - "sh"
           - "-c"
-          - |
-            airflow users create \
-              --username admin \
-              --firstname Admin \
-              --lastname User \
-              --role Admin \
-              --email bhavip45@gmail.com \
-              --password wade \
-            && airflow api-server
+          - "airflow api-server"
         env:
         - name: AIRFLOW__CORE__EXECUTOR
           value: "LocalExecutor"
