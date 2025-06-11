@@ -61,7 +61,22 @@ spec:
     targetPort: 5432
 ---
 ############################################################################
-# 4. Airflow Scheduler Deployment (with DB Init, DAG Sync, and Shared DAG Folder)
+# 4. Shared Volume Definition (for DAGs and include)
+############################################################################
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: airflow-shared-pvc
+  namespace: airflow
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+---
+############################################################################
+# 5. Airflow Scheduler Deployment
 ############################################################################
 apiVersion: apps/v1
 kind: Deployment
@@ -78,35 +93,20 @@ spec:
       labels:
         component: scheduler
     spec:
-      initContainers:
-      - name: init-airflow-db
-        image: apache/airflow:2.6.2
-        command: ["airflow", "db", "init"]
+      containers:
+      - name: scheduler
+        image: apache/airflow:3.0.0
+        command: ["sh", "-c", "pip install -r /shared/dags/requirements.txt && airflow scheduler"]
         env:
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
         - name: AIRFLOW__CORE__EXECUTOR
           value: "LocalExecutor"
-        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
-          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
-      - name: pull-dags
-        image: alpine/git
-        command:
-          - "sh"
-          - "-c"
-          - "rm -rf /shared/dags/* && git clone https://github.com/bkpatel95/DAGs.git /shared/dags"
+        - name: AIRFLOW__CORE__DAGS_FOLDER
+          value: "/shared/dags"
         volumeMounts:
         - name: shared-volume
           mountPath: /shared
-      containers:
-      - name: scheduler
-        image: apache/airflow:2.6.2
-        command: [ "sh", "-c", "mkdir -p /shared/dags && airflow scheduler" ]
-        env:
-        - name: AIRFLOW__CORE__EXECUTOR
-          value: "LocalExecutor"
-        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
-          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
-        - name: AIRFLOW__CORE__DAGS_FOLDER
-          value: "/shared/dags"
         resources:
           requests:
             cpu: "1"
@@ -114,15 +114,31 @@ spec:
           limits:
             cpu: "2"
             memory: "4Gi"
+      - name: git-sync
+        image: k8s.gcr.io/git-sync/git-sync:v3.6.8
+        env:
+        - name: GIT_SYNC_REPO
+          value: "https://github.com/bkpatel95/DAGs.git"
+        - name: GIT_SYNC_BRANCH
+          value: "main"
+        - name: GIT_SYNC_ROOT
+          value: "/shared"
+        - name: GIT_SYNC_DEST
+          value: "dags"
+        - name: GIT_SYNC_ONE_TIME
+          value: "false"
+        - name: GIT_SYNC_WAIT
+          value: "30"
         volumeMounts:
         - name: shared-volume
           mountPath: /shared
       volumes:
       - name: shared-volume
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: airflow-shared-pvc
 ---
 ############################################################################
-# 5. Airflow Webserver Deployment (with Admin User Creation, DAG Sync, and Shared DAG Folder)
+# 6. Airflow Webserver Deployment
 ############################################################################
 apiVersion: apps/v1
 kind: Deployment
@@ -139,27 +155,20 @@ spec:
       labels:
         component: webserver
     spec:
-      initContainers:
-      - name: pull-dags
-        image: alpine/git
-        command:
-          - "sh"
-          - "-c"
-          - "rm -rf /shared/dags/* && git clone https://github.com/bkpatel95/DAGs.git /shared/dags"
+      containers:
+      - name: webserver
+        image: apache/airflow:3.0.0
+        command: ["sh", "-c", "pip install -r /shared/dags/requirements.txt && airflow users create --username admin --firstname Admin --lastname User --role Admin --email bhavip45@gmail.com --password admin && airflow webserver"]
+        env:
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "LocalExecutor"
+        - name: AIRFLOW__CORE__DAGS_FOLDER
+          value: "/shared/dags"
         volumeMounts:
         - name: shared-volume
           mountPath: /shared
-      containers:
-      - name: webserver
-        image: apache/airflow:2.6.2
-        command: [ "sh", "-c", "airflow users create --username admin --firstname Admin --lastname User --role Admin --email bhavip45@gmail.com --password admin && airflow webserver" ]
-        env:
-        - name: AIRFLOW__CORE__EXECUTOR
-          value: "LocalExecutor"
-        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
-          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
-        - name: AIRFLOW__CORE__DAGS_FOLDER
-          value: "/shared/dags"
         resources:
           requests:
             cpu: "250m"
@@ -167,15 +176,31 @@ spec:
           limits:
             cpu: "1"
             memory: "2Gi"
+      - name: git-sync
+        image: k8s.gcr.io/git-sync/git-sync:v3.6.8
+        env:
+        - name: GIT_SYNC_REPO
+          value: "https://github.com/bkpatel95/DAGs.git"
+        - name: GIT_SYNC_BRANCH
+          value: "main"
+        - name: GIT_SYNC_ROOT
+          value: "/shared"
+        - name: GIT_SYNC_DEST
+          value: "dags"
+        - name: GIT_SYNC_ONE_TIME
+          value: "false"
+        - name: GIT_SYNC_WAIT
+          value: "30"
         volumeMounts:
         - name: shared-volume
           mountPath: /shared
       volumes:
       - name: shared-volume
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: airflow-shared-pvc
 ---
 ############################################################################
-# 6. Airflow Webserver Service (NodePort for External Access)
+# 7. Airflow Webserver Service
 ############################################################################
 apiVersion: v1
 kind: Service
