@@ -115,7 +115,7 @@ spec:
           value: "/shared/dags"
         volumeMounts:
         - name: shared-volume
-          mountPath: /shared
+          mountPath: /shared/dags
         resources:
           requests:
             cpu: "1"
@@ -131,16 +131,16 @@ spec:
         - name: GIT_SYNC_BRANCH
           value: "main"
         - name: GIT_SYNC_ROOT
-          value: "/shared"
+          value: "/shared/dags"
         - name: GIT_SYNC_DEST
-          value: "dags"
+          value: "."
         - name: GIT_SYNC_ONE_TIME
           value: "false"
         - name: GIT_SYNC_WAIT
           value: "30"
         volumeMounts:
         - name: shared-volume
-          mountPath: /shared
+          mountPath: /shared/dags
       volumes:
       - name: shared-volume
         persistentVolumeClaim:
@@ -183,7 +183,7 @@ spec:
           value: "bhavip45@gmail.com"
         volumeMounts:
         - name: shared-volume
-          mountPath: /shared
+          mountPath: /shared/dags
         resources:
           requests:
             cpu: "250m"
@@ -199,78 +199,16 @@ spec:
         - name: GIT_SYNC_BRANCH
           value: "main"
         - name: GIT_SYNC_ROOT
-          value: "/shared"
+          value: "/shared/dags"
         - name: GIT_SYNC_DEST
-          value: "dags"
+          value: "."
         - name: GIT_SYNC_ONE_TIME
           value: "false"
         - name: GIT_SYNC_WAIT
           value: "30"
         volumeMounts:
         - name: shared-volume
-          mountPath: /shared
-      volumes:
-      - name: shared-volume
-        persistentVolumeClaim:
-          claimName: airflow-shared-pvc
----
-############################################################################
-# 7. Airflow API Server Service (NodePort)
-############################################################################
-apiVersion: v1
-kind: Service
-metadata:
-  name: airflow-api-server
-  namespace: airflow
-spec:
-  type: NodePort
-  selector:
-    component: api-server
-  ports:
-  - protocol: TCP
-    port: 8080
-    targetPort: 8080
-    nodePort: 30080
----
-############################################################################
-# 8. Airflow Triggerer Deployment
-############################################################################
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: airflow-triggerer
-  namespace: airflow
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      component: triggerer
-  template:
-    metadata:
-      labels:
-        component: triggerer
-    spec:
-      containers:
-      - name: triggerer
-        image: apache/airflow:3.0.0
-        command: ["sh", "-c", "pip install -r /shared/dags/requirements.txt && airflow triggerer"]
-        env:
-        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
-          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
-        - name: AIRFLOW__CORE__EXECUTOR
-          value: "LocalExecutor"
-        - name: AIRFLOW__CORE__DAGS_FOLDER
-          value: "/shared/dags"
-        volumeMounts:
-        - name: shared-volume
-          mountPath: /shared
-        resources:
-          requests:
-            cpu: "250m"
-            memory: "512Mi"
-          limits:
-            cpu: "1"
-            memory: "2Gi"
+          mountPath: /shared/dags
       volumes:
       - name: shared-volume
         persistentVolumeClaim:
