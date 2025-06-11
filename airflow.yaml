@@ -225,3 +225,21 @@ spec:
       - name: shared-volume
         persistentVolumeClaim:
           claimName: airflow-shared-pvc
+---
+############################################################################
+# 7. Airflow API Server Service (NodePort for UI access)
+############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-api-server
+  namespace: airflow
+spec:
+  type: NodePort
+  selector:
+    component: api-server
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080
