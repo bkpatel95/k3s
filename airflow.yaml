@@ -93,6 +93,15 @@ spec:
       labels:
         component: scheduler
     spec:
+      initContainers:
+      - name: migrate-db
+        image: apache/airflow:3.0.0
+        command: ["airflow", "db", "migrate"]
+        env:
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "LocalExecutor"
       containers:
       - name: scheduler
         image: apache/airflow:3.0.0
@@ -158,7 +167,7 @@ spec:
       containers:
       - name: webserver
         image: apache/airflow:3.0.0
-        command: ["sh", "-c", "pip install -r /shared/dags/requirements.txt && airflow users create --username admin --firstname Admin --lastname User --role Admin --email bhavip45@gmail.com --password admin && airflow webserver"]
+        command: ["sh", "-c", "pip install -r /shared/dags/requirements.txt && airflow webserver"]
         env:
         - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
           value: "postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow"
