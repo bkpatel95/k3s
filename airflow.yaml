@@ -99,7 +99,7 @@ spec:
       containers:
       - name: scheduler
         image: apache/airflow:3.0.2
-        command: [ "sh", "-c", "mkdir -p /shared/dags && airflow scheduler" ]
+        command: [ "sh", "-c", "mkdir -p /shared/dags && airflow db migrate" ]
         env:
         - name: AIRFLOW__CORE__EXECUTOR
           value: "LocalExecutor"
