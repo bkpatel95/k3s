@@ -99,7 +99,7 @@ spec:
       containers:
       - name: scheduler
         image: apache/airflow:3.0.2
-        command: [ "sh", "-c", "mkdir -p /shared/dags && airflow db migrate" ]
+        command: [ "sh", "-c", "mkdir -p /shared/dags && airflow scheduler" ]
         env:
         - name: AIRFLOW__CORE__EXECUTOR
           value: "LocalExecutor"
@@ -140,6 +140,9 @@ spec:
         component: webserver
     spec:
       initContainers:
+      - name: init-airflow-db
+        image: apache/airflow:3.0.2
+        command: ["sh","-c","airflow db migrate"]
       - name: pull-dags
         image: alpine/git
         command:
